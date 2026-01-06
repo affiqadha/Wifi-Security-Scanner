@@ -129,6 +129,16 @@ This project is part of a Final Year Project for academic purposes.
 - Android Security Documentation
 - Flutter Community
 
----
+## 📸 Screenshots
+
+<p align="center">
+  <img src="screenshots/1.png" width="250" alt="Unsafe Connection Warning"/>
+  <img src="screenshots/2.png" width="250" alt="Home Screen"/>
+</p>
+
+<p align="center">
+  <img src="screenshots/3.png" width="250" alt="MITM Detection Results"/>
+  <img src="screenshots/4.png" width="250" alt="Security Threat Alerts"/>
+</p>
 
 **⚠️ Disclaimer**: WiFense is an educational tool developed for FYP purposes. Use for unauthorized network testing is prohibited.
