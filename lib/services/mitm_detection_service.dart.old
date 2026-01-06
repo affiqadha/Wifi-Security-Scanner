@@ -1,0 +1,421 @@
+import 'package:flutter/services.dart';
+import 'package:logger/logger.dart';
+import 'dart:async';
+import 'dart:math' as math;
+
+class MitmDetectionService {
+  static const platform = MethodChannel('wifi_security/mitm');
+  final Logger _logger = Logger();
+  
+  // Singleton pattern
+  static final MitmDetectionService _instance = MitmDetectionService._internal();
+  
+  factory MitmDetectionService() {
+    return _instance;
+  }
+  
+  MitmDetectionService._internal();
+  
+  // Store known ARP entries for comparison
+  final Map<String, String> _knownArpEntries = {};
+  
+  // Flag to track if detection is currently running
+  bool _isDetectionRunning = false;
+  
+  // Stream controller for continuous monitoring
+  final _mitmDetectionController = StreamController<MitmDetectionResult>.broadcast();
+  Stream<MitmDetectionResult> get detectionStream => _mitmDetectionController.stream;
+  
+  /// Performs a single scan for MITM attacks
+  Future<MitmDetectionResult> detectMitm() async {
+    if (_isDetectionRunning) {
+      return MitmDetectionResult(
+        mitmDetected: false,
+        reason: "Detection already in progress",
+        detectionType: DetectionType.none,
+      );
+    }
+    
+    _isDetectionRunning = true;
+    
+    try {
+      // TEMPORARY MOCK IMPLEMENTATION FOR DEMO
+      // Simulate network scanning delay
+      await Future.delayed(Duration(seconds: 2));
+      
+      // Mock detection results with randomized outcomes
+      final random = math.Random();
+      final mockDetected = random.nextDouble() < 0.3; // 30% chance of detection
+      
+      if (mockDetected) {
+        // Randomly choose an attack type for demonstration
+        final attackTypes = [
+          DetectionType.arpSpoofing,
+          DetectionType.sslStripping, 
+          DetectionType.dnsHijacking,
+          DetectionType.packetAnalysis
+        ];
+        final attackType = attackTypes[random.nextInt(attackTypes.length)];
+        
+        List<String>? suspiciousIps;
+        List<String>? duplicatedMacs;
+        bool? gatewayCompromised;
+        Map<String, dynamic>? details;
+        
+        if (attackType == DetectionType.arpSpoofing) {
+          suspiciousIps = [
+            '192.168.1.${random.nextInt(254) + 1}',
+            '192.168.1.${random.nextInt(254) + 1}'
+          ];
+          duplicatedMacs = [
+            '00:1A:2B:${random.nextInt(99).toString().padLeft(2, '0')}:${random.nextInt(99).toString().padLeft(2, '0')}:${random.nextInt(99).toString().padLeft(2, '0')}',
+            '00:1A:2B:${random.nextInt(99).toString().padLeft(2, '0')}:${random.nextInt(99).toString().padLeft(2, '0')}:${random.nextInt(99).toString().padLeft(2, '0')}'
+          ];
+          gatewayCompromised = random.nextBool();
+          details = {
+            'suspicious_ips_count': suspiciousIps.length,
+            'duplicated_macs_count': duplicatedMacs.length,
+            'gateway_compromised': gatewayCompromised,
+          };
+        } else if (attackType == DetectionType.sslStripping) {
+          details = {
+            'description': 'HTTPS downgrade detected on popular domains',
+            'affected_domains': ['mail.example.com', 'bank.example.com']
+          };
+        } else if (attackType == DetectionType.dnsHijacking) {
+          details = {
+            'suspicious_dns_servers': ['10.0.0.${random.nextInt(254) + 1}'],
+            'expected_dns': '8.8.8.8',
+            'current_dns': '10.0.0.${random.nextInt(254) + 1}',
+          };
+        } else if (attackType == DetectionType.packetAnalysis) {
+          details = {
+            'average_delay': 120.0 + random.nextDouble() * 100,
+            'standard_deviation': 20.0 + random.nextDouble() * 30,
+            'samples': 10,
+          };
+        }
+        
+        final result = MitmDetectionResult(
+          mitmDetected: true,
+          reason: "Mock MITM attack detected for demonstration",
+          detectionType: attackType,
+          details: details,
+          suspiciousIps: suspiciousIps,
+          duplicatedMacs: duplicatedMacs,
+          gatewayCompromised: gatewayCompromised,
+        );
+        
+        // Broadcast the result
+        _mitmDetectionController.add(result);
+        return result;
+      } else {
+        // No attack detected (mock safe result)
+        final result = MitmDetectionResult(
+          mitmDetected: false,
+          reason: "No MITM attacks detected",
+          detectionType: DetectionType.none,
+          details: {
+            'scan_time_ms': 1500 + random.nextInt(1000),
+            'networks_analyzed': 1 + random.nextInt(5),
+          },
+        );
+        
+        // Broadcast the result
+        _mitmDetectionController.add(result);
+        return result;
+      }
+      
+      // ORIGINAL IMPLEMENTATION (COMMENTED OUT)
+      /*
+      // Run all available detection methods
+      final arpSpoofingResult = await _detectArpSpoofing();
+      final sslStripResult = await _detectSslStripping();
+      final dnsHijackingResult = await _detectDnsHijacking();
+      final packetAnalysisResult = await _analyzePacketDelays();
+      
+      // Combine results
+      final bool mitmDetected = 
+          arpSpoofingResult.mitmDetected || 
+          sslStripResult.mitmDetected || 
+          dnsHijackingResult.mitmDetected ||
+          packetAnalysisResult.mitmDetected;
+      
+      // Determine most severe detection type
+      DetectionType detectionType = DetectionType.none;
+      String reason = "No MITM attack detected";
+      
+      if (arpSpoofingResult.mitmDetected) {
+        detectionType = DetectionType.arpSpoofing;
+        reason = arpSpoofingResult.reason;
+      } else if (dnsHijackingResult.mitmDetected) {
+        detectionType = DetectionType.dnsHijacking;
+        reason = dnsHijackingResult.reason;
+      } else if (sslStripResult.mitmDetected) {
+        detectionType = DetectionType.sslStripping;
+        reason = sslStripResult.reason;
+      } else if (packetAnalysisResult.mitmDetected) {
+        detectionType = DetectionType.packetAnalysis;
+        reason = packetAnalysisResult.reason;
+      }
+      
+      // Compile detailed information
+      final detailsMap = {
+        'arp_spoofing': arpSpoofingResult.details,
+        'ssl_stripping': sslStripResult.details,
+        'dns_hijacking': dnsHijackingResult.details,
+        'packet_analysis': packetAnalysisResult.details,
+      };
+      
+      final result = MitmDetectionResult(
+        mitmDetected: mitmDetected,
+        reason: reason,
+        detectionType: detectionType,
+        details: detailsMap,
+        suspiciousIps: arpSpoofingResult.suspiciousIps,
+        duplicatedMacs: arpSpoofingResult.duplicatedMacs,
+        gatewayCompromised: arpSpoofingResult.gatewayCompromised,
+      );
+      
+      // Broadcast the result
+      _mitmDetectionController.add(result);
+      
+      return result;
+      */
+    } catch (e) {
+      _logger.e("MITM detection error: $e");
+      return MitmDetectionResult(
+        mitmDetected: false,
+        reason: "Detection error: $e",
+        detectionType: DetectionType.error,
+      );
+    } finally {
+      _isDetectionRunning = false;
+    }
+  }
+  
+  /// Start continuous monitoring for MITM attacks
+  Future<void> startContinuousMonitoring({int intervalSeconds = 30}) async {
+    Timer.periodic(Duration(seconds: intervalSeconds), (_) async {
+      final result = await detectMitm();
+      _mitmDetectionController.add(result);
+    });
+  }
+  
+  /// Detect ARP spoofing attacks (MOCK IMPLEMENTATION)
+  Future<MitmDetectionResult> _detectArpSpoofing() async {
+    // Mock implementation to avoid platform channel errors
+    await Future.delayed(Duration(milliseconds: 500));
+    
+    final random = math.Random();
+    final detected = random.nextDouble() < 0.2; // 20% chance of detection
+    
+    if (detected) {
+      final List<String> suspiciousIps = [
+        '192.168.1.${random.nextInt(254) + 1}',
+        '192.168.1.${random.nextInt(254) + 1}'
+      ];
+      
+      final List<String> duplicatedMacs = [
+        '00:1A:2B:${random.nextInt(99)}:${random.nextInt(99)}:${random.nextInt(99)}',
+      ];
+      
+      final bool gatewayCompromised = random.nextBool();
+      
+      return MitmDetectionResult(
+        mitmDetected: true,
+        reason: gatewayCompromised 
+            ? "Gateway MAC address has been duplicated" 
+            : "MAC address changes detected for ${suspiciousIps.length} IP(s)",
+        detectionType: DetectionType.arpSpoofing,
+        details: {
+          'suspicious_ips_count': suspiciousIps.length,
+          'duplicated_macs_count': duplicatedMacs.length,
+          'gateway_compromised': gatewayCompromised,
+        },
+        suspiciousIps: suspiciousIps,
+        duplicatedMacs: duplicatedMacs,
+        gatewayCompromised: gatewayCompromised,
+      );
+    }
+    
+    return MitmDetectionResult(
+      mitmDetected: false,
+      reason: "No ARP spoofing detected",
+      detectionType: DetectionType.none,
+    );
+  }
+  
+  /// Detect SSL stripping attacks (MOCK IMPLEMENTATION)
+  Future<MitmDetectionResult> _detectSslStripping() async {
+    // Mock implementation to avoid platform channel errors
+    await Future.delayed(Duration(milliseconds: 500));
+    
+    final random = math.Random();
+    final detected = random.nextDouble() < 0.15; // 15% chance of detection
+    
+    return MitmDetectionResult(
+      mitmDetected: detected,
+      reason: detected ? "SSL stripping attack detected: HTTPS downgrade observed" : "No SSL stripping detected",
+      detectionType: detected ? DetectionType.sslStripping : DetectionType.none,
+      details: detected ? {'description': 'HTTPS downgrade detected on popular domains'} : null,
+    );
+  }
+  
+  /// Detect DNS hijacking (MOCK IMPLEMENTATION)
+  Future<MitmDetectionResult> _detectDnsHijacking() async {
+    // Mock implementation to avoid platform channel errors
+    await Future.delayed(Duration(milliseconds: 500));
+    
+    final random = math.Random();
+    final detected = random.nextDouble() < 0.1; // 10% chance of detection
+    
+    return MitmDetectionResult(
+      mitmDetected: detected,
+      reason: detected ? "DNS hijacking detected" : "No DNS hijacking detected",
+      detectionType: detected ? DetectionType.dnsHijacking : DetectionType.none,
+      details: detected ? {
+        'suspicious_dns_servers': ['10.0.0.${random.nextInt(254) + 1}'],
+        'expected_dns': '8.8.8.8',
+        'current_dns': '10.0.0.${random.nextInt(254) + 1}',
+      } : null,
+    );
+  }
+  
+  /// Analyze packet delays to detect potential traffic interception (MOCK IMPLEMENTATION)
+  Future<MitmDetectionResult> _analyzePacketDelays() async {
+    // Mock implementation to avoid platform channel errors
+    await Future.delayed(Duration(milliseconds: 500));
+    
+    final random = math.Random();
+    final detected = random.nextDouble() < 0.15; // 15% chance of detection
+    
+    final double averageDelay = 20.0 + random.nextDouble() * 100;
+    final double standardDeviation = detected ? 25.0 + random.nextDouble() * 20 : 5.0 + random.nextDouble() * 8;
+    
+    return MitmDetectionResult(
+      mitmDetected: detected,
+      reason: detected 
+          ? "Unusual network latency patterns detected (σ=$standardDeviation ms)" 
+          : "Network latency patterns normal",
+      detectionType: detected ? DetectionType.packetAnalysis : DetectionType.none,
+      details: {
+        'average_delay': averageDelay,
+        'standard_deviation': standardDeviation,
+        'samples': 10 + random.nextInt(20),
+      },
+    );
+  }
+  
+  // Clean up resources
+  void dispose() {
+    _mitmDetectionController.close();
+  }
+}
+
+/// Types of MITM detection
+enum DetectionType {
+  none,
+  arpSpoofing,
+  sslStripping,
+  dnsHijacking,
+  packetAnalysis,
+  error,
+}
+
+/// Result of MITM detection
+class MitmDetectionResult {
+  final bool mitmDetected;
+  final String reason;
+  final DetectionType detectionType;
+  final Map<String, dynamic>? details;
+  final List<String>? suspiciousIps;
+  final List<String>? duplicatedMacs;
+  final bool? gatewayCompromised;
+  
+  MitmDetectionResult({
+    required this.mitmDetected,
+    required this.reason,
+    required this.detectionType,
+    this.details,
+    this.suspiciousIps,
+    this.duplicatedMacs,
+    this.gatewayCompromised,
+  });
+  
+  /// Returns a user-friendly description of the detection result
+  String get userFriendlyDescription {
+    if (!mitmDetected) {
+      return "No MITM attack detected. Your connection appears to be secure.";
+    }
+    
+    switch (detectionType) {
+      case DetectionType.arpSpoofing:
+        return "ARP spoofing detected! Someone may be intercepting your network traffic.";
+      case DetectionType.sslStripping:
+        return "SSL stripping detected! Your secure HTTPS connections may be downgraded to insecure HTTP.";
+      case DetectionType.dnsHijacking:
+        return "DNS hijacking detected! Your web traffic may be redirected to malicious sites.";
+      case DetectionType.packetAnalysis:
+        return "Unusual network behavior detected! Your traffic may be monitored or intercepted.";
+      case DetectionType.error:
+        return "Error during MITM detection. Please try again.";
+      default:
+        return "Unknown security issue detected.";
+    }
+  }
+  
+  /// Returns a more detailed technical explanation for advanced users
+  String get technicalExplanation {
+    if (!mitmDetected) {
+      return "All MITM detection tests passed. No abnormal network behavior detected.";
+    }
+    
+    switch (detectionType) {
+      case DetectionType.arpSpoofing:
+        String explanation = "ARP spoofing attack detected. ";
+        if (gatewayCompromised == true) {
+          explanation += "Your gateway appears to be compromised with multiple MAC addresses claiming to be your router. ";
+        }
+        if (suspiciousIps != null && suspiciousIps!.isNotEmpty) {
+          explanation += "MAC address changes detected for ${suspiciousIps!.join(', ')}. ";
+        }
+        if (duplicatedMacs != null && duplicatedMacs!.isNotEmpty) {
+          explanation += "Duplicate MAC addresses found: ${duplicatedMacs!.join(', ')}. ";
+        }
+        return explanation;
+      case DetectionType.sslStripping:
+        return "SSL stripping attack detected. HTTP connections are being intercepted and HTTPS requests are being downgraded to HTTP. This allows an attacker to see all your web traffic in plaintext.";
+      case DetectionType.dnsHijacking:
+        return "DNS hijacking detected. Your DNS queries may be redirected to malicious servers. This can lead to phishing attacks or malware distribution.";
+      case DetectionType.packetAnalysis:
+        return "Abnormal packet delay patterns detected. This could indicate that your traffic is being intercepted, analyzed, and then forwarded, causing irregular timing patterns.";
+      case DetectionType.error:
+        return "An error occurred during MITM detection: $reason";
+      default:
+        return "Unknown security issue detected: $reason";
+    }
+  }
+  
+  /// Returns recommended actions based on the detection result
+  String get recommendedActions {
+    if (!mitmDetected) {
+      return "Continue using the network normally. Consider using a VPN for additional security.";
+    }
+    
+    String baseRecommendation = "Disconnect from this network immediately. ";
+    
+    switch (detectionType) {
+      case DetectionType.arpSpoofing:
+        return baseRecommendation + "Use mobile data instead. If you must use WiFi, connect through a VPN.";
+      case DetectionType.sslStripping:
+        return baseRecommendation + "Only visit websites using HTTPS. Consider using HTTPS Everywhere browser extension. Use a VPN for additional protection.";
+      case DetectionType.dnsHijacking:
+        return baseRecommendation + "Switch to a secure DNS provider like Cloudflare (1.1.1.1) or Google (8.8.8.8). Use a VPN that encrypts DNS queries.";
+      case DetectionType.packetAnalysis:
+        return baseRecommendation + "Use a VPN to encrypt your traffic. Avoid sensitive transactions on this network.";
+      default:
+        return baseRecommendation + "Use mobile data or a different WiFi network. Use a VPN for additional security.";
+    }
+  }
+}

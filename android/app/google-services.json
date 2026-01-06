@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "974909209152",
+    "project_id": "wifense-bf40d",
+    "storage_bucket": "wifense-bf40d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:974909209152:android:59a0c09dd90e5bbf0c7da5",
+        "android_client_info": {
+          "package_name": "com.example.android_wifi_scanner"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAv8lJPWsDyMo0x8_HTda7-8gRxhQHNC38"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
